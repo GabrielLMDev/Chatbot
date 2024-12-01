@@ -32,15 +32,15 @@ app.use(bodyParser.json());
 
 const mainMenu = `*Menú principal:*\n\n1️⃣ - Servicios Digitales *GabrielLMDev*\n2️⃣ - Servicios Plataformas Streaming`;
 
-// Inicializa Baileys}
+// Inicializa Baileys
 const startBot = async () => {
-
     const { state, saveCreds } = await useMultiFileAuthState("session_auth_info");
     const sock = makeWASocket({
         printQRInTerminal: true,
         auth: state,
         logger: log({ level: "silent" }),
     });
+
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const message = messages[0];
         if (!message.message || message.key.fromMe) return;
@@ -48,29 +48,41 @@ const startBot = async () => {
         const from = message.key.remoteJid;
         const userMessage = message.message.conversation || '';
 
+        // Obtener el contexto actual del usuario
+        const session = getSession(from) || { context: 'main_menu' };
+
         let response;
-        // Manejo de palabra "inicio"
-        if (userMessage.toLowerCase() === '/Inicio' || userMessage.toLowerCase() === '/inicio' || userMessage.toLowerCase() === '/INICIO') {
+
+        // Manejo de comandos globales
+        if (userMessage.toLowerCase() === '/inicio') {
             response = {
                 newContext: 'main_menu',
                 message: mainMenu,
             };
-        } else if (userMessage.toLowerCase() === '/precios' || userMessage.toLowerCase() === '/Precios' || userMessage.toLowerCase() === '/PRECIOS' || userMessage.toLowerCase() === '/precio' || userMessage.toLowerCase() === '/Precio' || userMessage.toLowerCase() === '/PRECIO') {
+        } else if (userMessage.toLowerCase().startsWith('/precios')) {
             const products = await db.collection('apps').orderBy('group').get();
             const productList = products.docs
                 .map((doc) => `${setEmoji(new Date())} _${doc.data().name}:_ *$${doc.data().price}* ${doc.data().available ? "" : "_(AGOTADO)_"}`)
                 .join('\n');
             const pricesMessage = `${setEmojiTittle(new Date())} _*PRECIOS DE HOY: ${setFormatDate(new Date())}*_ ${setEmojiTittle(new Date())}\n\n${productList}`;
             response = {
+                newContext: session.context, // Mantener el contexto actual
                 message: pricesMessage,
             };
         } else {
-            // Ignorar otros mensajes
-            return;
+            // Manejo de submenús basado en el contexto actual
+            response = await menus(session.context, userMessage, from);
         }
 
-        updateSession(from, response.newContext);
+        // Si no hay respuesta (comando no reconocido), no hacer nada
+        if (!response || !response.message) return;
 
+        // Actualizar el estado del usuario solo si el contexto cambia
+        if (response.newContext) {
+            updateSession(from, response.newContext);
+        }
+
+        // Enviar el mensaje de respuesta
         await sock.sendMessage(from, { text: response.message });
     });
 
@@ -78,6 +90,7 @@ const startBot = async () => {
 };
 
 startBot();
+
 
 // Inicializa Express
 app.get('/', (req, res) => res.send('Chatbot funcionando'));
