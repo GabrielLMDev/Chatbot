@@ -53,7 +53,7 @@ const startBot = async () => {
 
         let response;
 
-        // Manejo de comandos globales
+        // Manejo de comandos
         if (userMessage.toLowerCase() === '/inicio') {
             response = {
                 newContext: 'main_menu',
@@ -70,7 +70,7 @@ const startBot = async () => {
                 message: pricesMessage,
             };
         } else {
-            // Manejo de submenús basado en el contexto actual
+            // Manejo de submenus basado en el contexto actual
             response = await menus(session.context, userMessage, from);
         }
 

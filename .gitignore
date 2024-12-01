@@ -16,3 +16,4 @@ session_auth_info/
 *.log
 
 /firebase-service-account.json
+package-lock.json
